@@ -81,13 +81,15 @@ class Engineer(Member):
     
     
 class LabGroup:
+    organization = 'DUT AI'
+    
     def __init__(self, name : str):
         self.name = name
         self.members : List[Member] = []
         
     def add_member(self, member : Member):
         if not isinstance(member, Member):
-            raise ValueError("Chi chap nhan doi tuong thuoc class Member")
+            raise TypeError("Chi chap nhan doi tuong thuoc class Member")
         self.members.append(member)
             
     def sort_by_age (self):
@@ -106,9 +108,125 @@ class LabGroup:
     def count_by_role(self, role : str) -> int:
         return sum(1 for member in self.members if member.role() == role)
     
+    def to_report(self) -> 'LabReport':
+        return LabReport(
+            lab_name= self.name,
+            total_members= len(self.members),
+            student_count= self.count_by_role("Student"),
+            mentor_count= self.count_by_role("Mentor"),
+            engineer_count= self.count_by_role("Engineer")
+        )
+        
+    @classmethod
+    def from_members(cls, name : str, members : List[Member]) -> 'LabGroup':
+        lab = cls(name)
+        for member in members:
+            lab.add_member(member)
+        return lab
     
+    @classmethod
+    def from_dict(cls, data : dict):
+        return cls(**data)
     
 class StudentInput(BaseModel):
     name : str = Field(min_length = 1)
     year_of_birth : int = Field(ge=1950, le=2015)
+    major : str
+    
+    @field_validator('name')
+    def name_not_empty(cls, a):
+        if not a.strip():
+            raise ValueError('Ten khong rong')
+        return a.strip()
+    
+    @classmethod
+    def from_dict(cls, data : dict):
+        return cls.model_validate(data)
+    
+
+class EngineerInput(BaseModel):
+    name : str = Field(min_length = 1)
+    year_of_birth : int = Field(ge=1950, le=2015)
+    tech_stack : str
+    
+    @field_validator('name')
+    def name_not_empty(cls, a):
+        if not a.strip():
+            raise ValueError('Ten khong rong')
+        return a.strip()
+    
+    @classmethod
+    def from_dict(cls, data : dict):
+        return cls.model_validate(data)
+    
+class MentorInput(BaseModel):
+    name : str = Field(min_length=1)
+    year_of_birth : int = Field(ge=1950, le=2015)
     expertise : str
+    
+    @field_validator('name')
+    def name_not_empty(cls, a):
+        if not a.strip():
+            raise ValueError('Ten khong rong')
+        return a.strip()
+    
+    @classmethod
+    def from_dict(cls, data : dict):
+        return cls.model_validate(data)
+    
+@dataclass(frozen=True)
+class LabReport:
+    lab_name : str
+    total_members : int
+    student_count : int
+    mentor_count : int
+    engineer_count : int
+    
+    
+if __name__ == "__main__":
+    print("--- 1. Khởi tạo nhóm NLP Lab ---")
+    members_list = [
+        StudentMember('An', 2005, 'Data Science'),
+        Mentor('Bình', 1990, 'NLP'),
+        Mentor('Chi', 1988, 'Computer Vision'),
+        Engineer('Dũng', 1999, 'Python')
+    ]
+    lab = LabGroup.from_members("NLP Lab", members_list)
+
+    print(f"Tổ chức: {LabGroup.organization}")
+    print(f"Đếm số lượng Mentor: {lab.count_by_role('Mentor')} (Kỳ vọng: 2)")
+    
+    avg_mentor_year = lab.average_birth_year_of_mentors()
+    print(f"Trung bình năm sinh Mentor: {avg_mentor_year} (Kỳ vọng: 1989.0)")
+
+    report = lab.to_report()
+    print(f"Tổng số thành viên (từ report): {report.total_members} (Kỳ vọng: 4)")
+    print(f"Chi tiết Report: {report}")
+
+    print("\n--- 2. Kiểm tra sắp xếp theo tuổi ---")
+    lab.sort_by_age()
+    sorted_years = [m.year_of_birth for m in lab.members]
+    print(f"Thứ tự năm sinh sau khi sắp xếp: {sorted_years} (Kỳ vọng: [2005, 1999, 1990, 1988])")
+
+    print("\n--- 3. Kiểm tra tính đa hình (describe) ---")
+    print(lab.describe())
+
+    print("\n--- 4. Kiểm tra các trường hợp ngoại lệ (Exceptions) ---")
+    
+    try:
+        StudentMember('Tèo', 2022, 'IT')
+    except ValueError as e:
+        print(f"Bắt lỗi ValueError thành công: {e}")
+
+    try:
+        StudentInput.from_dict({'name': 'Tèo', 'year_of_birth': 2022, 'major': 'IT'})
+    except ValidationError as e:
+        print(f"Bắt lỗi Pydantic Validation thành công.")
+
+    try:
+        lab.add_member('An')
+    except TypeError as e:
+        print(f"Bắt lỗi TypeError thành công: {e}")
+        
+    empty_lab = LabGroup("Empty Lab")
+    print(f"\nTrung bình năm sinh Mentor của nhóm rỗng: {empty_lab.average_birth_year_of_mentors()} (Kỳ vọng: None)")
