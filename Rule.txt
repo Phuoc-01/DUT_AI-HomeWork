@@ -1,0 +1,3 @@
+- Code bang tay
+- dung AI de hieu khong phai de copy - paste
+- moi bai deu commit len git
